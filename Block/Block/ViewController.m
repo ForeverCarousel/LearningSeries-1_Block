@@ -19,7 +19,7 @@ typedef void(^myBlock)(id obj);
 
 @interface ViewController ()
 
-@property (nonatomic, copy) myBlock mBlcok;
+@property (nonatomic,   copy) myBlock mBlcok;
 @property (nonatomic, strong) NSMutableArray* myArray;
 @property (nonatomic, strong) Person* person;
 @property (nonatomic, assign) NSInteger number;
@@ -63,7 +63,7 @@ int globalVar =  1;
     
     /** brief
      首先block分为以下三种类型
-     NSGlobalBlock：位于内存代码区
+     NSGlobalBlock：位于内存代码区 我理解的是和函数在一样的内存区？
      NSStackBlock： 位于内存栈区
      NSMallocBlock：位于内存堆区
      对于block，有两个内存管理方法：Block_copy, Block_release;Block_copy与copy等效， Block_release与release等效；
@@ -72,7 +72,7 @@ int globalVar =  1;
      */
     
     
-    /************ block类型以及内存问题  ************/
+                    /************ block类型以及内存问题  ************/
     
     { //折叠
         
@@ -118,7 +118,7 @@ int globalVar =  1;
         };
         mallocBlock(1,2);
         //    id temp1 = [mallocBlock retain];//MRC下retain之后依然在栈区 属于__NSStackBlock__ 所以retain并不能起到期望的作用
-        //    id temp2 = [mallocBlock copy];//如果在MRC下 执行这个操作后blcok类型就会变为 __NSMallocBlock__内存区域在堆区
+        //    id temp2 = [mallocBlock copy];//如果在MRC下 执行这个操作后block类型就会变为 __NSMallocBlock__内存区域在堆区
         
         
         NSArray* a = [[NSArray alloc] init];;
@@ -133,7 +133,7 @@ int globalVar =  1;
         void (^mallocBlock3) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
 //            _number = a + b;
             self.number = a + b;
-            [self.myArray addObject:@"1234"];//着红情况下不会出现循环引用 因为 mallocBlock3属于一个局部变量 我认为在arc下它是一个缺省了__strong 的局部变量 在viewdidload执行完后会释放该block 所以不会出现循环引用因为没有形成引用链
+            [self.myArray addObject:@"1234"];//这种情况下不会出现循环引用 因为 mallocBlock3属于一个局部变量 我认为在arc下它是一个缺省了__strong 的局部变量 在viewdidload执行完后会释放该block 所以不会出现循环引用因为没有形成引用链
             
         };
         mallocBlock3(1,2);
