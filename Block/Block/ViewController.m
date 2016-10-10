@@ -7,7 +7,7 @@
 //
 
 /**
- iOS_Develop_Samples_Series-1
+                                iOS_Develop_Samples_Series-1
  
  这个示例主要介绍了block的三种类型 以及这三种类型的内存管理 和MRC ARC下的区别  主要是为了防止产生内存泄露和悬空指针问题
  
@@ -22,7 +22,7 @@ typedef void(^myBlock)(id obj);
 @property (nonatomic, copy) myBlock mBlcok;
 @property (nonatomic, strong) NSMutableArray* myArray;
 @property (nonatomic, strong) Person* person;
-
+@property (nonatomic, assign) NSInteger number;
 @end
 
 
@@ -40,8 +40,10 @@ int globalVar =  1;
 - (instancetype)init
 {
     self = [super init];
-    if (self) {
+    if (self)
+    {
         self.myArray = [NSMutableArray array];
+        _number = 1000;
     }
     return self;
 }
@@ -88,13 +90,13 @@ int globalVar =  1;
         globalBlock(1,2);
         void (^globalBlock1) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
             NSLog(@"sum is %d", a + b + globalVar);//这里引用到了全局变量
-            
+            globalVar ++;
         };
         globalBlock1(1,2);
         
+
         
-        
-#pragma __NSGlobalBlock__ && __NSStackBlock__
+#pragma __NSMallocBlock__ && __NSStackBlock__
         /**
          
          NSStackBlock:使用retain,release操作无效；栈区block会在方法返回后将block空间回收； 使用copy将栈区block复制到堆区，可以长久保留block的空间，以供后面的程序使用；对已经在heap的block执行copy并不会生成新的block只是引用计数增加；
@@ -127,6 +129,18 @@ int globalVar =  1;
             }
         };
         mallocBlock2(a);
+        
+        void (^mallocBlock3) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
+//            _number = a + b;
+            self.number = a + b;
+            [self.myArray addObject:@"1234"];//着红情况下不会出现循环引用 因为 mallocBlock3属于一个局部变量 我认为在arc下它是一个缺省了__strong 的局部变量 在viewdidload执行完后会释放该block 所以不会出现循环引用因为没有形成引用链
+            
+        };
+        mallocBlock3(1,2);
+
+        
+        
+        
         [self combineString:@"hello" withString:@"world"];
         //    [self doSomethingWithBlock:^(id result) {
         //        NSLog(@"%@",result);
