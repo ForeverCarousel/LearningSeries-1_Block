@@ -1,15 +1,20 @@
 //
 //  ViewController.h
-//  Block
+//  BlockMemeorySample
 //
-//  Created by Carouesl on 2016/10/10.
-//  Copyright © 2016年 Carouesl. All rights reserved.
+//  Created by Carouesl on 16/9/27.
+//  Copyright © 2016年 Youku Tudou Inc. All rights reserved.
 //
 
 #import <UIKit/UIKit.h>
 
+typedef void (^callBackBlock) (NSInteger index);
+
+
 @interface ViewController : UIViewController
 
+
+@property (nonatomic, copy) callBackBlock callBack;
 
 @end
 
