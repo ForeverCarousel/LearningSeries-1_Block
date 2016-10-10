@@ -18,9 +18,14 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor lightGrayColor];
+    self.view.backgroundColor = [UIColor whiteColor];
 
-    self.title = @"RootViewController";
+    self.title = @"Root";
+    UILabel* label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
+    label.center = self.view.center;
+    label.textAlignment = NSTextAlignmentCenter;
+    label.text = @"Click Test Block Dealloc";
+    [self.view addSubview:label];
     // Do any additional setup after loading the view.
 }
 
