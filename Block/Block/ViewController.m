@@ -9,7 +9,7 @@
 /**
                                 iOS_Develop_Samples_Series-1
  
- 这个示例主要介绍了block的三种类型 以及这三种类型的内存管理 和MRC ARC下的区别  主要是为了防止产生内存泄露和悬空指针问题
+ 这个示例主要介绍了block的三种类型 以及这三种类型的内存管理 和MRC ARC下的区别  主要是为了防止产生内存泄露和悬空指针问题  具体block的实现可以用clang -rewrite-objc 编译一个类的.m文件看中间代码的实现 网上也有N多解析的例子
  
  */
 #import "ViewController.h"
@@ -47,6 +47,7 @@ int globalVar =  1;
     }
     return self;
 }
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -56,71 +57,153 @@ int globalVar =  1;
                                                                               style:UIBarButtonItemStylePlain
                                                                              target:self action:@selector(backToRoot)];
     self.view.backgroundColor = [UIColor whiteColor];
-    //    int stackVar = 1;//1位于常量区  stackVar位于stack去
-    //    NSString* stackStr = @"123"; //@"123"位于常量区   stackStr在栈区
-    //    NSString* heapStr = [[NSString alloc] init]; //heapStr变量在栈区❌  应该也是在堆区  指向的内存在堆区
-    //    函数的参数实际上是一种局部变量都是保存在栈区
     
     
-    /** brief
-     首先block分为以下三种类型
-     NSGlobalBlock：位于内存代码区 我理解的是和函数在一样的内存区？
-     NSStackBlock： 位于内存栈区
-     NSMallocBlock：位于内存堆区
-     对于block，有两个内存管理方法：Block_copy, Block_release;Block_copy与copy等效， Block_release与release等效；
-     不管是对block进行retian,copy,release,block的引用计数都不会增加，始终为1；
+    /**
+                                基础的内存分区问题 (详细见工程内的内存分区图)
      
-     **引用变量问题
+    int stackVar = 1;               //1位于常量区  stackVar位于stack去
+     
+    NSString* stackStr = @"123";    //@"123"位于常量区   stackStr在栈区
+     
+    NSString* heapStr = [[NSString alloc] init]; //heapStr变量是在堆区(这里之前理解错了 我以为变量本身在栈区 指向的空间在堆区)  指向的内存在堆区
+        函数的参数实际上是一种局部变量都是保存在栈区
+     
+     总结：
+一、 栈区内存 （运行时分配）
+     
+     1.局部变量的存储空间基本都是栈区,局部变量在函数,循环,分支中定义
+     
+     2.在栈区的存储空间由高向低分配,从低向高存储.
+     
+     3.栈区内存由系统负责分配和回收,程序员开发者没有管理权限.
+     
+     4.当函数,循环,分支执行结束后,局部变量的生命周期就结束了.之后不能再进行使用,由系统销毁
+     
+     5.栈底,栈顶:栈底是栈区内存的起始位置,先定义的变量所占用的内存,从栈底开始分配,后定义的变量所占用的内存,逐渐向栈顶分配.
+     
+     6.入栈,出栈:入栈,定义新的局部变量,分配存储空间.出栈,局部变量被销毁,存储空间被收回.
+     
+     7.栈的特点:先进后出,后进先出.例如:子弹夹添加子弹,打出子弹.
+     
+二、堆区内存 (运行时分配)
+     
+     1.由开发者负责分配和回收.
+     
+     2.忘记回收会造成泄漏.
+     
+     3.程序运行结束后,需要及时回收堆内存,但是如果不能及时回收堆内存程序运行期间可能会因为内存泄漏造成堆内存被全部使用,导致程序无法使用.
+
+三、常量区内存 (编译时分配)
+     
+     1.常量存储在常量区,例如:常量数字,常量字符串,常量字符,
+     
+     2.常量区存储空间由系统分配和回收
+     
+     3.程序运行结束后,常量区的存储空间被回收
+     
+     4.常量区的数据只能读取,不能修改,修改的话会造成崩溃.
+     
+四、静态区内存 (编译时分配)
+     
+     1.全局变量,使用static修饰的局部变量,都存储在静态区.
+     
+     2.静态区的存储空间由系统分配和回收.
+     
+     3.程序运行结束后,静态区的存储空间被回收,静态变量的生命周期和程序一样长.
+     
+     4.静态变量只能初始化一次,在编译时进行初始化,运行时可以修改值
+     
+     5.静态变量如果没有设置初始值,默认为0.
+     
+五、代码区内存
+     
+     1.由系统分配和回收
+     
+     2.程序运行结束之后,由系统回收分配过的内存存储空间
+     
+    */
+    
+//*********************************************************************************
+    
+    
+    /**
+                        Block
+一、 类型
+     
+     首先block分为以下三种类型：
+     1. NSGlobalBlock：位于内存代码区 我理解的是和函数在一样的内存区？
+     
+     2. NSStackBlock： 位于内存栈区
+     
+     3. NSMallocBlock：位于内存堆区
+     
+     对于block，有两个内存管理方法：Block_copy, Block_release;Block_copy与copy等效， Block_release与release等效；
+     
+     不管是对block进行retian,copy,release,block的引用计数都不会增加，始终为1；
+     */
+ 
+/**
+二、引用变量问题
+     
      1.block可以引用外部变量但是不可以直接修改其值，但是可以修改全局变量  静态变量 静态全局变量
      2.用__block修饰的局部变量可以在block内部修改 其根本原因是如果有一个局部变量被__block修饰 并且被某一个block引用了之后 其指针指向的区域会被由stack区copy至heap区具体见下面的示例
      
-     */
+ 
     
-    //示例1：block访问外部变量
+    示例1：block访问外部变量
+*/
     int varA = 10;
     NSLog(@"定义时的地址varA:  %p", &varA);// 局部变量在栈区
+/*
+    在定义block的时候，如果引用了外部变量,默认是把外部变量当做是常量编码到block当中，并且把外部变量copy到堆中，外部变量值为定义block时变量的数值
+     
+    如果后续再修改x的值，默认不会影响block内部的数值变化！
     
-    // 在定义block的时候，如果引用了外部变量,默认是把外部变量当做是常量编码到block当中，并且把外部变量copy到堆中，外部变量值为定义block时变量的数值
-    // 如果后续再修改x的值，默认不会影响block内部的数值变化！
-    // 在默认情况下，不允许block内部修改外部变量的数值！因为会破坏代码的可读性，不易于维护！
+     在默认情况下，不允许block内部修改外部变量的数值！因为会破坏代码的可读性，不易于维护！
+*/
     void(^myBlockA)() = ^ {
         
         NSLog(@"%d", varA);
         NSLog(@"被block引用时的地址varA: %p", &varA); // 堆中的地址
     };
-    //输出是10,因为block copy了一份x到堆中
-    
+/*
+    输出是10,因为block copy了一份x到堆中
+*/
     NSLog(@"引用后的地址varA:  %p", &varA);  // 栈区
     varA = 20;
     
     myBlockA();
-    //示例2：在block中修改外部变量
-    // 使用 __block，说明不在关心x数值的具体变化
+    
+/*
+    示例2：在block中修改外部变量
+    使用 __block，说明不在关心x数值的具体变化
+*/
     __block int varB = 10;
     NSLog(@"定义时varB的地址: %p", &varB);                 // 栈区
     
-    // ！定义block时，如果引用了外部使用__block的变量，在block定义之后, block外部的x和block内部的x指向了同一个值,内存地址相同
+/*
+    定义block时，如果引用了外部使用__block的变量，在block定义之后, block外部的x和block内部的x指向了同一个值,内存地址相同
+*/
     void (^myBlockB)() = ^ {
         varB = 80;
         NSLog(@"被block引用时varB的地址: %p", &varB);          // 堆区
     };
-    NSLog(@"引用后varB的地址: %p", &varB);                 // 堆区
+    NSLog(@"引用后varB的地址: %p", &varB);                 // 堆区 这里已经修改varB的内存位置
     
     myBlockB();
     NSLog(@"%d", varB);//打印x的值为8，且地址在堆区中
    
     
                     /************ block类型以及内存问题  ************/
-    
-    { //折叠
-        
-        
+
 #pragma __NSGlobalBlock__
+{ //折叠
         
-        
-        //无论ARC或者MRC 当blcok没有引用到外部变量的时或者引用到的变量是全局变量 此时block对象类型是__NSGlobalBlock__
-        //这种类型的block的内存区为代码区  retain copy release都无效 在MRC下__NSStackBlock__同理 当它所在的函数返回后 栈内存会被系统回收  即使某个block被添加到数组或其他集合中也不能持有 因为stack的内存和text区的内存并不是以引用计数来判断的  内存的释放归属于系统
-        
+/*
+ 无论ARC或者MRC 当blcok没有引用到外部变量的时或者引用到的变量是全局变量 此时block对象类型是__NSGlobalBlock__
+这种类型的block的内存区为代码区  retain copy release都无效 在MRC下__NSStackBlock__同理 当它所在的函数返回后 栈内存会被系统回收  即使某个block被添加到数组或其他集合中也不能持有 因为stack的内存和text区的内存并不是以引用计数来判断的  内存的释放归属于系统
+*/
         void (^globalBlock) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
             NSLog(@"sum is %d", a + b);//没有引用任何外部变量
             
@@ -169,7 +252,6 @@ int globalVar =  1;
         mallocBlock2(a);
         
         void (^mallocBlock3) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
-//            _number = a + b;
             self.number = a + b;
             [self.myArray addObject:@"1234"];//这种情况下不会出现循环引用 因为 mallocBlock3属于一个局部变量 我认为在arc下它是一个缺省了__strong 的局部变量 在viewdidload执行完后会释放该block 所以不会出现循环引用因为没有形成引用链
             
@@ -180,16 +262,13 @@ int globalVar =  1;
         
         
         [self combineString:@"hello" withString:@"world"];
-        //    [self doSomethingWithBlock:^(id result) {
-        //        NSLog(@"%@",result);
-        //    }];
         NSLog(@"222");
         
-    }
+}
     
-    /************ block导致的循环引用问题  ************/
+                    /************ block导致的循环引用问题  ************/
     
-    {
+{
         __weak typeof (self) weakSelf = self;
         self.mBlcok = ^(id obj){
             //下面如果使用self替代weakSelf会导致循环引用 内存泄漏
@@ -221,7 +300,7 @@ int globalVar =  1;
         
         
         
-    }
+}
     
 }
 -(void)backToRoot
