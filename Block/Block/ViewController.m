@@ -31,7 +31,7 @@ typedef void(^myBlock)(id obj);
 
 
 
-__weak id observerObject = nil; //全局变量 位于全局区或者叫静态去
+__weak id observerObject = nil; //全局变量 位于全局区或者叫静态去 这里定义这个是用来观察viewdidload中定义的block在viewdidload执行完毕之后的状态
 
 int globalVar =  1;
 
@@ -58,7 +58,8 @@ int globalVar =  1;
     self.view.backgroundColor = [UIColor whiteColor];
     //    int stackVar = 1;//1位于常量区  stackVar位于stack去
     //    NSString* stackStr = @"123"; //@"123"位于常量区   stackStr在栈区
-    //    NSString* heapStr = [[NSString alloc] init]; //heapStr变量在栈区  指向的内存在堆区 参数都是保存在栈区
+    //    NSString* heapStr = [[NSString alloc] init]; //heapStr变量在栈区❌  应该也是在堆区  指向的内存在堆区
+    //    函数的参数实际上是一种局部变量都是保存在栈区
     
     
     /** brief
@@ -69,8 +70,45 @@ int globalVar =  1;
      对于block，有两个内存管理方法：Block_copy, Block_release;Block_copy与copy等效， Block_release与release等效；
      不管是对block进行retian,copy,release,block的引用计数都不会增加，始终为1；
      
+     **引用变量问题
+     1.block可以引用外部变量但是不可以直接修改其值，但是可以修改全局变量  静态变量 静态全局变量
+     2.用__block修饰的局部变量可以在block内部修改 其根本原因是如果有一个局部变量被__block修饰 并且被某一个block引用了之后 其指针指向的区域会被由stack区copy至heap区具体见下面的示例
+     
      */
     
+    //示例1：block访问外部变量
+    int varA = 10;
+    NSLog(@"定义时的地址varA:  %p", &varA);// 局部变量在栈区
+    
+    // 在定义block的时候，如果引用了外部变量,默认是把外部变量当做是常量编码到block当中，并且把外部变量copy到堆中，外部变量值为定义block时变量的数值
+    // 如果后续再修改x的值，默认不会影响block内部的数值变化！
+    // 在默认情况下，不允许block内部修改外部变量的数值！因为会破坏代码的可读性，不易于维护！
+    void(^myBlockA)() = ^ {
+        
+        NSLog(@"%d", varA);
+        NSLog(@"被block引用时的地址varA: %p", &varA); // 堆中的地址
+    };
+    //输出是10,因为block copy了一份x到堆中
+    
+    NSLog(@"引用后的地址varA:  %p", &varA);  // 栈区
+    varA = 20;
+    
+    myBlockA();
+    //示例2：在block中修改外部变量
+    // 使用 __block，说明不在关心x数值的具体变化
+    __block int varB = 10;
+    NSLog(@"定义时varB的地址: %p", &varB);                 // 栈区
+    
+    // ！定义block时，如果引用了外部使用__block的变量，在block定义之后, block外部的x和block内部的x指向了同一个值,内存地址相同
+    void (^myBlockB)() = ^ {
+        varB = 80;
+        NSLog(@"被block引用时varB的地址: %p", &varB);          // 堆区
+    };
+    NSLog(@"引用后varB的地址: %p", &varB);                 // 堆区
+    
+    myBlockB();
+    NSLog(@"%d", varB);//打印x的值为8，且地址在堆区中
+   
     
                     /************ block类型以及内存问题  ************/
     
