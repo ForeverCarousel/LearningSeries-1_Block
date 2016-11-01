@@ -158,18 +158,19 @@ int globalVar =  1;
 /*
     在定义block的时候，如果引用了外部变量,默认是把外部变量当做是常量编码到block当中，并且把外部变量copy到堆中，外部变量值为定义block时变量的数值
      
-    如果后续再修改x的值，默认不会影响block内部的数值变化！
+    如果后续再修改x的值，默认不会影响block内部的数值变化
     
-     在默认情况下，不允许block内部修改外部变量的数值！因为会破坏代码的可读性，不易于维护！
+    在默认情况下，不允许block内部修改外部变量的数值 因为会破坏代码的可读性，不易于维护！
 */
     void(^myBlockA)() = ^ {
         
+        /*
+         输出是10,因为block copy了一份x到堆中
+         */
         NSLog(@"%d", varA);
         NSLog(@"被block引用时的地址varA: %p", &varA); // 堆中的地址
     };
-/*
-    输出是10,因为block copy了一份x到堆中
-*/
+
     NSLog(@"引用后的地址varA:  %p", &varA);  // 栈区
     varA = 20;
     
@@ -201,7 +202,7 @@ int globalVar =  1;
 { //折叠
         
 /*
- 无论ARC或者MRC 当blcok没有引用到外部变量的时或者引用到的变量是全局变量 此时block对象类型是__NSGlobalBlock__
+ 无论ARC或者MRC 当block没有引用到外部变量的时或者引用到的变量是全局变量 此时block对象类型是__NSGlobalBlock__
 这种类型的block的内存区为代码区  retain copy release都无效 在MRC下__NSStackBlock__同理 当它所在的函数返回后 栈内存会被系统回收  即使某个block被添加到数组或其他集合中也不能持有 因为stack的内存和text区的内存并不是以引用计数来判断的  内存的释放归属于系统
 */
         void (^globalBlock) (NSInteger,NSInteger) = ^(NSInteger a, NSInteger b){
@@ -220,7 +221,7 @@ int globalVar =  1;
 #pragma __NSMallocBlock__ && __NSStackBlock__
         /**
          
-         NSStackBlock:使用retain,release操作无效；栈区block会在方法返回后将block空间回收； 使用copy将栈区block复制到堆区，可以长久保留block的空间，以供后面的程序使用；对已经在heap的block执行copy并不会生成新的block只是引用计数增加；
+         NSStackBlock:使用retain,release操作无效；栈区block会在方法返回后将block空间回收； 使用copy将栈区block复制到堆区，可以长久保留block的空间，以供后面的函数使用；对已经在heap的block执行copy并不会生成新的block只是引用计数增加；
          
          NSMallocBlock:支持retian,release，虽然block的引用计数始终为1，但内存中还是会对引用进行管理，使用retain引用+1， release引用-1； 对于NSMallocBlock使用copy之后不会产生新的block，只是增加了一次引用，类似于使用retian;
          下面的理解更准确一些：http://www.solstice.com/blog/blocks-and-memory-management-stack-vs-heap
